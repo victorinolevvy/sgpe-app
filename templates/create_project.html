@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="content-section">
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <fieldset class="form-group">
+                <legend class="border-bottom mb-4">New Project</legend>
+                <div class="form-group">
+                    {{ form.name.label(class="form-control-label") }}
+                    {{ form.name(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.location_province.label(class="form-control-label") }}
+                    {{ form.location_province(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.location_district.label(class="form-control-label") }}
+                    {{ form.location_district(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.location_admin_post.label(class="form-control-label") }}
+                    {{ form.location_admin_post(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.generation_capacity_kW.label(class="form-control-label") }}
+                    {{ form.generation_capacity_kW(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.storage_capacity_kWh.label(class="form-control-label") }}
+                    {{ form.storage_capacity_kWh(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.network_type.label(class="form-control-label") }}
+                    {{ form.network_type(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.mv_voltage_kV.label(class="form-control-label") }}
+                    {{ form.mv_voltage_kV(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.lv_voltage_V.label(class="form-control-label") }}
+                    {{ form.lv_voltage_V(class="form-control form-control-lg") }}
+                </div>
+                <div class="form-group">
+                    {{ form.num_connections.label(class="form-control-label") }}
+                    {{ form.num_connections(class="form-control form-control-lg") }}
+                </div>
+            </fieldset>
+            <div class="form-group">
+                {{ form.submit(class="btn btn-outline-info") }}
+            </div>
+        </form>
+    </div>
+{% endblock content %}

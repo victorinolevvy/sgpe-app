@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Dashboard</h1>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Province</th>
+                <th>District</th>
+                <th>Generation Capacity (kW)</th>
+                <th>Storage Capacity (kWh)</th>
+                <th>Network Type</th>
+                <th>Connections</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for project in projects %}
+                <tr>
+                    <td><a href="{{ url_for('project', project_id=project.id) }}">{{ project.name }}</a></td>
+                    <td>{{ project.location_province }}</td>
+                    <td>{{ project.location_district }}</td>
+                    <td>{{ project.generation_capacity_kW }}</td>
+                    <td>{{ project.storage_capacity_kWh }}</td>
+                    <td>{{ project.network_type }}</td>
+                    <td>{{ project.num_connections }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock content %}

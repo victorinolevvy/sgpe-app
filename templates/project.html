@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-3">{{ project.name }}</h1>
+  <div class="content-section">
+    <p><strong>Province:</strong> {{ project.location_province }}</p>
+    <p><strong>District:</strong> {{ project.location_district }}</p>
+    <p><strong>Administrative Post:</strong> {{ project.location_admin_post }}</p>
+    <p><strong>Generation Capacity (kW):</strong> {{ project.generation_capacity_kW }}</p>
+    <p><strong>Storage Capacity (kWh):</strong> {{ project.storage_capacity_kWh }}</p>
+    <p><strong>Network Type:</strong> {{ project.network_type }}</p>
+    <p><strong>MV Voltage (kV):</strong> {{ project.mv_voltage_kV }}</p>
+    <p><strong>LV Voltage (V):</strong> {{ project.lv_voltage_V }}</p>
+    <p><strong>Number of Connections:</strong> {{ project.num_connections }}</p>
+  </div>
+{% endblock content %}
