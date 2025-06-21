@@ -32,6 +32,7 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(60), nullable=False)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return f"User('{self.username}', '{self.email}')"
@@ -80,12 +81,14 @@ def register():
     form = RegistrationForm()
     if form.validate_on_submit():
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-        user = User(username=form.username.data, email=form.email.data, password=hashed_password)
+        # Make the first registered user an admin
+        is_admin = not User.query.first()
+        user = User(username=form.username.data, email=form.email.data, password=hashed_password, is_admin=is_admin)
         db.session.add(user)
         db.session.commit()
-        flash(f'Account created for {form.username.data}!', 'success')
+        flash(f'Conta criada para {form.username.data}!', 'success')
         return redirect(url_for('login'))
-    return render_template('register.html', title='Register', form=form)
+    return render_template('register.html', title='Registar', form=form)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -100,7 +103,7 @@ def login():
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('home'))
         else:
-            flash('Login Unsuccessful. Please check email and password', 'danger')
+            flash('Login sem sucesso. Por favor, verifique o e-mail e a senha', 'danger')
     return render_template('login.html', title='Login', form=form)
 
 
@@ -113,6 +116,9 @@ def logout():
 @app.route('/project/new', methods=['GET', 'POST'])
 @login_required
 def new_project():
+    if not current_user.is_admin:
+        flash('Não tem permissão para aceder a esta página.', 'danger')
+        return redirect(url_for('home'))
     form = ProjectForm()
     if form.validate_on_submit():
         project = Project(name=form.name.data, location_province=form.location_province.data,
@@ -122,9 +128,9 @@ def new_project():
                           lv_voltage_V=form.lv_voltage_V.data, num_connections=form.num_connections.data)
         db.session.add(project)
         db.session.commit()
-        flash('Your project has been created!', 'success')
+        flash('O seu projeto foi criado com sucesso!', 'success')
         return redirect(url_for('home'))
-    return render_template('create_project.html', title='New Project', form=form)
+    return render_template('create_project.html', title='Novo Projeto', form=form)
 
 
 @app.route('/project/<int:project_id>')
