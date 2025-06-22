@@ -1,15 +1,110 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-3">{{ project.name }}</h1>
-  <div class="content-section">
-    <p><strong>Province:</strong> {{ project.location_province }}</p>
-    <p><strong>District:</strong> {{ project.location_district }}</p>
-    <p><strong>Administrative Post:</strong> {{ project.location_admin_post }}</p>
-    <p><strong>Generation Capacity (kW):</strong> {{ project.generation_capacity_kW }}</p>
-    <p><strong>Storage Capacity (kWh):</strong> {{ project.storage_capacity_kWh }}</p>
-    <p><strong>Network Type:</strong> {{ project.network_type }}</p>
-    <p><strong>MV Voltage (kV):</strong> {{ project.mv_voltage_kV }}</p>
-    <p><strong>LV Voltage (V):</strong> {{ project.lv_voltage_V }}</p>
-    <p><strong>Number of Connections:</strong> {{ project.num_connections }}</p>
-  </div>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">{{ project.name }}</h2>
+        {% if current_user.is_authenticated and current_user.is_admin %}
+            <div>
+                <a class="btn btn-secondary btn-sm" href="{{ url_for('main.update_project', project_id=project.id) }}">Editar</a>
+                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                    Apagar
+                </button>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <!-- Coluna de Localização -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-map-marker-alt me-2"></i><strong>Localização</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>Província:</strong> {{ project.location_province }}</li>
+                    <li class="list-group-item"><strong>Distrito:</strong> {{ project.location_district }}</li>
+                    <li class="list-group-item"><strong>Posto Administrativo:</strong> {{ project.location_admin_post }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Coluna de Detalhes da Central -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-solar-panel me-2"></i><strong>Detalhes da Central</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>Capacidade de Geração:</strong> {{ project.generation_capacity_kW }} kW</li>
+                    <li class="list-group-item"><strong>Capacidade de Armazenamento:</strong> {{ project.storage_capacity_kWh }} kWh</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Coluna de Detalhes da Rede -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-network-wired me-2"></i><strong>Detalhes da Rede</strong>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><strong>Tipo de Rede:</strong> {{ project.network_type }}</li>
+                    {% if 'Média Tensão' in project.network_type %}
+                        <li class="list-group-item"><strong>Nível de Tensão (MT):</strong> {{ project.mv_voltage_level if project.mv_voltage_level is not none else 'N/A' }} kV</li>
+                    {% endif %}
+                    {% if 'Baixa Tensão' in project.network_type %}
+                        <li class="list-group-item"><strong>Tipo de Rede (BT):</strong> {{ project.lv_network_type if project.lv_network_type is not none else 'N/A' }}</li>
+                    {% endif %}
+                    <li class="list-group-item"><strong>Número de Ligações:</strong> {{ project.num_connections }}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{{ url_for('main.home') }}" class="btn btn-outline-secondary">Voltar ao Dashboard</a>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Tem a certeza de que deseja apagar o projeto <strong id="projectName"></strong>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" action="">
+                    <input type="submit" class="btn btn-danger" value="Apagar">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var deleteModal = document.getElementById('deleteModal');
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var projectId = button.getAttribute('data-project-id');
+            var projectName = button.getAttribute('data-project-name');
+            
+            var modalTitle = deleteModal.querySelector('.modal-title');
+            var modalBodyStrong = deleteModal.querySelector('.modal-body strong');
+            var deleteForm = deleteModal.querySelector('#deleteForm');
+
+            modalTitle.textContent = 'Confirmar Exclusão do Projeto: ' + projectName;
+            modalBodyStrong.textContent = projectName;
+            deleteForm.action = "/project/" + projectId + "/delete";
+        });
+    });
+</script>
+{% endblock %}
 {% endblock content %}

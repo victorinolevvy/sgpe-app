@@ -1,30 +1,119 @@
 {% extends "layout.html" %}
 {% block content %}
-    <h1>Dashboard</h1>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Nome</th>
-                <th>Província</th>
-                <th>Distrito</th>
-                <th>Capacidade de Geração (kW)</th>
-                <th>Capacidade de Armazenamento (kWh)</th>
-                <th>Tipo de Rede</th>
-                <th>Ligações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for project in projects %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Dashboard de Projetos</h1>
+        {% if current_user.is_authenticated and current_user.is_admin %}
+            <a href="{{ url_for('main.new_project') }}" class="btn btn-primary">Adicionar Novo Projeto</a>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="thead-dark">
                 <tr>
-                    <td><a href="{{ url_for('project', project_id=project.id) }}">{{ project.name }}</a></td>
-                    <td>{{ project.location_province }}</td>
-                    <td>{{ project.location_district }}</td>
-                    <td>{{ project.generation_capacity_kW }}</td>
-                    <td>{{ project.storage_capacity_kWh }}</td>
-                    <td>{{ project.network_type }}</td>
-                    <td>{{ project.num_connections }}</td>
+                    <th>Nome</th>
+                    <th>Província</th>
+                    <th>Distrito</th>
+                    <th>Capacidade de Geração (kW)</th>
+                    <th>Capacidade de Armazenamento (kWh)</th>
+                    <th>Tipo de Rede</th>
+                    <th>Ligações</th>
+                    <th>Ações</th>
                 </tr>
+            </thead>
+            <tbody>
+                {% for project in projects.items %}
+                    <tr>
+                        <td><a href="{{ url_for('main.project', project_id=project.id) }}">{{ project.name }}</a></td>
+                        <td>{{ project.location_province }}</td>
+                        <td>{{ project.location_district }}</td>
+                        <td>{{ project.generation_capacity_kW }}</td>
+                        <td>{{ project.storage_capacity_kWh }}</td>
+                        <td>{{ project.network_type }}</td>
+                        <td>{{ project.num_connections }}</td>
+                        <td>
+                            <a href="{{ url_for('main.update_project', project_id=project.id) }}" class="btn btn-secondary btn-sm">Editar</a>
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                                Apagar
+                            </button>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center">Não existem projetos registados.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Controles de Paginação -->
+    <nav aria-label="Paginação de Projetos">
+        <ul class="pagination justify-content-center">
+            {% if projects.has_prev %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=projects.prev_num) }}">Anterior</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+            {% endif %}
+
+            {% for page_num in projects.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                {% if page_num %}
+                    {% if projects.page == page_num %}
+                        <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                    {% else %}
+                        <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=page_num) }}">{{ page_num }}</a></li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
             {% endfor %}
-        </tbody>
-    </table>
+
+            {% if projects.has_next %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=projects.next_num) }}">Próxima</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Tem a certeza de que deseja apagar o projeto <strong id="projectName"></strong>?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="deleteForm" method="POST" action="">
+                        <input type="submit" class="btn btn-danger" value="Apagar">
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var deleteModal = document.getElementById('deleteModal');
+            deleteModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var projectId = button.getAttribute('data-project-id');
+                var projectName = button.getAttribute('data-project-name');
+                
+                var modalTitle = deleteModal.querySelector('.modal-title');
+                var modalBodyStrong = deleteModal.querySelector('.modal-body strong');
+                var deleteForm = deleteModal.querySelector('#deleteForm');
+
+                modalTitle.textContent = 'Confirmar Exclusão do Projeto: ' + projectName;
+                modalBodyStrong.textContent = projectName;
+                deleteForm.action = "/project/" + projectId + "/delete";
+            });
+        });
+    </script>
+    {% endblock %}
 {% endblock content %}

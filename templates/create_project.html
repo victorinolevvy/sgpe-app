@@ -1,54 +1,166 @@
 {% extends "layout.html" %}
+
 {% block content %}
     <div class="content-section">
         <form method="POST" action="">
             {{ form.hidden_tag() }}
             <fieldset class="form-group">
-                <legend class="border-bottom mb-4">New Project</legend>
-                <div class="form-group">
+                <legend class="border-bottom mb-4">{{ legend }}</legend>
+                
+                <div class="form-group mb-3">
                     {{ form.name.label(class="form-control-label") }}
-                    {{ form.name(class="form-control form-control-lg") }}
+                    {% if form.name.errors %}
+                        {{ form.name(class="form-control form-control-lg is-invalid") }}
+                        <div class="invalid-feedback">
+                            {% for error in form.name.errors %}
+                                <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ form.name(class="form-control form-control-lg") }}
+                    {% endif %}
                 </div>
-                <div class="form-group">
-                    {{ form.location_province.label(class="form-control-label") }}
-                    {{ form.location_province(class="form-control form-control-lg") }}
+                
+                <!-- Campos de Localização -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            {{ form.location_province.label(class="form-control-label") }}
+                            {{ form.location_province(class="form-control", id="province") }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            {{ form.location_district.label(class="form-control-label") }}
+                            {{ form.location_district(class="form-control", id="district") }}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            {{ form.location_admin_post.label(class="form-control-label") }}
+                            {{ form.location_admin_post(class="form-control", id="admin_post") }}
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    {{ form.location_district.label(class="form-control-label") }}
-                    {{ form.location_district(class="form-control form-control-lg") }}
-                </div>
-                <div class="form-group">
-                    {{ form.location_admin_post.label(class="form-control-label") }}
-                    {{ form.location_admin_post(class="form-control form-control-lg") }}
-                </div>
-                <div class="form-group">
+
+                <!-- Outros campos -->
+                <div class="form-group mb-3">
                     {{ form.generation_capacity_kW.label(class="form-control-label") }}
-                    {{ form.generation_capacity_kW(class="form-control form-control-lg") }}
+                    {{ form.generation_capacity_kW(class="form-control") }}
                 </div>
-                <div class="form-group">
+                <div class="form-group mb-3">
                     {{ form.storage_capacity_kWh.label(class="form-control-label") }}
-                    {{ form.storage_capacity_kWh(class="form-control form-control-lg") }}
+                    {{ form.storage_capacity_kWh(class="form-control") }}
                 </div>
-                <div class="form-group">
-                    {{ form.network_type.label(class="form-control-label") }}
-                    {{ form.network_type(class="form-control form-control-lg") }}
-                </div>
-                <div class="form-group">
-                    {{ form.mv_voltage_kV.label(class="form-control-label") }}
-                    {{ form.mv_voltage_kV(class="form-control form-control-lg") }}
-                </div>
-                <div class="form-group">
-                    {{ form.lv_voltage_V.label(class="form-control-label") }}
-                    {{ form.lv_voltage_V(class="form-control form-control-lg") }}
-                </div>
-                <div class="form-group">
+                <div class="form-group mb-3">
                     {{ form.num_connections.label(class="form-control-label") }}
-                    {{ form.num_connections(class="form-control form-control-lg") }}
+                    {{ form.num_connections(class="form-control") }}
+                </div>
+
+                <!-- Campos Condicionais -->
+                <div class="form-group mb-3">
+                    {{ form.network_type.label(class="form-control-label d-block mb-2") }}
+                    {% for subfield in form.network_type %}
+                        <div class="form-check form-check-inline">
+                            {{ subfield(class="form-check-input") }}
+                            {{ subfield.label(class="form-check-label") }}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <div id="mv_voltage_level_field" class="form-group mb-3" style="display: none;">
+                    {{ form.mv_voltage_level.label(class="form-control-label") }}
+                    {{ form.mv_voltage_level(class="form-control") }}
+                </div>
+                
+                <div id="lv_network_type_field" class="form-group mb-3" style="display: none;">
+                    {{ form.lv_network_type.label(class="form-control-label d-block mb-2") }}
+                     {% for subfield in form.lv_network_type %}
+                        <div class="form-check">
+                            {{ subfield(class="form-check-input") }}
+                            {{ subfield.label(class="form-check-label") }}
+                        </div>
+                    {% endfor %}
                 </div>
             </fieldset>
-            <div class="form-group">
-                {{ form.submit(class="btn btn-outline-info") }}
+            <div class="form-group mt-4">
+                {{ form.submit(class="btn btn-primary") }}
+                {% if legend == 'Atualizar Projeto' %}
+                    <a href="{{ url_for('main.project', project_id=project_id) }}" class="btn btn-secondary">Cancelar</a>
+                {% endif %}
             </div>
         </form>
     </div>
 {% endblock content %}
+
+{% block scripts %}
+<script>
+    // Script para popular dinamicamente os dropdowns de localização
+    document.getElementById('province').addEventListener('change', function() {
+        var province = this.value;
+        var districtSelect = document.getElementById('district');
+        var adminPostSelect = document.getElementById('admin_post');
+
+        // Limpa os selects de distrito e posto administrativo
+        districtSelect.innerHTML = '<option value="">Selecione o Distrito</option>';
+        adminPostSelect.innerHTML = '<option value="">Selecione o Posto Administrativo</option>';
+
+        if (province) {
+            fetch('/api/districts/' + province)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(function(district) {
+                        var option = new Option(district, district);
+                        districtSelect.add(option);
+                    });
+                });
+        }
+    });
+
+    document.getElementById('district').addEventListener('change', function() {
+        var province = document.getElementById('province').value;
+        var district = this.value;
+        var adminPostSelect = document.getElementById('admin_post');
+
+        adminPostSelect.innerHTML = '<option value="">Selecione o Posto Administrativo</option>';
+
+        if (district) {
+            fetch('/api/admin_posts/' + province + '/' + district)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(function(post) {
+                        var option = new Option(post, post);
+                        adminPostSelect.add(option);
+                    });
+                });
+        }
+    });
+
+    // Script para mostrar/ocultar campos condicionais
+    document.addEventListener('DOMContentLoaded', function() {
+        const networkTypeCheckboxes = document.querySelectorAll('input[name="network_type"]');
+        const mvField = document.getElementById('mv_voltage_level_field');
+        const lvField = document.getElementById('lv_network_type_field');
+
+        function toggleFields() {
+            let showMv = false;
+            let showLv = false;
+            networkTypeCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    if (checkbox.value === 'Média Tensão') showMv = true;
+                    if (checkbox.value === 'Baixa Tensão') showLv = true;
+                }
+            });
+            mvField.style.display = showMv ? 'block' : 'none';
+            lvField.style.display = showLv ? 'block' : 'none';
+        }
+
+        networkTypeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', toggleFields);
+        });
+
+        // Garante o estado correto no carregamento da página (para edição e erros de validação)
+        toggleFields();
+    });
+</script>
+{% endblock %}
