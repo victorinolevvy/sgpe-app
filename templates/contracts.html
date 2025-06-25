@@ -1,0 +1,125 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Contratos</h1>
+            <a href="{{ url_for('main.add_contract') }}" class="btn btn-primary">Adicionar Novo Contrato</a>
+        </div>
+
+        <!-- Search Form -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <form method="GET" action="{{ url_for('main.contracts') }}">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Pesquisar por nº ou fornecedor..." value="{{ search_query or '' }}">
+                        <button class="btn btn-outline-secondary" type="submit">Pesquisar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="thead-dark">
+                    <tr>
+                        <th scope="col">Número do Contrato</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Fornecedor</th>
+                        <th scope="col">Valor (MZN)</th>
+                        <th scope="col">Início</th>
+                        <th scope="col">Fim</th>
+                        <th scope="col">Projetos</th>
+                        <th scope="col">Documento</th>
+                        <th scope="col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for contract in contracts.items %}
+                        <tr>
+                            <td>{{ contract.contract_number }}</td>
+                            <td>{{ contract.contract_type_info.name }}</td>
+                            <td>{{ contract.supplier_info.name }}</td>
+                            <td>{{ "{:,.2f}".format(contract.contract_value) }}</td>
+                            <td>{{ contract.start_date.strftime('%d-%m-%Y') if contract.start_date }}</td>
+                            <td>{{ contract.end_date.strftime('%d-%m-%Y') if contract.end_date }}</td>
+                            <td>
+                                {% for project in contract.projects %}
+                                    <a href="{{ url_for('main.project', project_id=project.id) }}">{{ project.name }}</a>{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    Nenhum
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if contract.document_filename %}
+                                    <a href="{{ url_for('main.download_document', filename=contract.document_filename) }}" target="_blank">Ver Documento</a>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('main.update_contract', contract_id=contract.id) }}" class="btn btn-sm btn-secondary">Editar</a>
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal{{ contract.id }}">
+                                    Apagar
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ contract.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ contract.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteModalLabel{{ contract.id }}">Apagar Contrato</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Tem a certeza que deseja apagar o contrato <strong>{{ contract.contract_number }}</strong>? Esta ação não pode ser desfeita.
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <form action="{{ url_for('main.delete_contract', contract_id=contract.id) }}" method="POST">
+                                            <input type="submit" class="btn btn-danger" value="Apagar">
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center">Nenhum contrato encontrado.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Controles de Paginação -->
+        <nav aria-label="Paginação de Contratos">
+            <ul class="pagination justify-content-center">
+                {% if contracts.has_prev %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.contracts', page=contracts.prev_num, search=search_query) }}">Anterior</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                {% endif %}
+
+                {% for page_num in contracts.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if page_num %}
+                        {% if contracts.page == page_num %}
+                            <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('main.contracts', page=page_num, search=search_query) }}">{{ page_num }}</a></li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if contracts.has_next %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.contracts', page=contracts.next_num, search=search_query) }}">Próxima</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+{% endblock content %}

@@ -4,11 +4,14 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'uma-chave-secreta-muito-dificil-de-adivinhar'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'site.db')
+        'sqlite:///' + os.path.join(basedir, 'instance', 'site.db') # Movido para a pasta instance
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    UPLOAD_FOLDER = os.path.join(basedir, 'instance', 'uploads')
 
     @staticmethod
     def init_app(app):
+        # Garante que a pasta de upload existe
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         pass
 
 class DevelopmentConfig(Config):

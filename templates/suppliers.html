@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="content-section">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="mb-0">Fornecedores</h1>
+            <a href="{{ url_for('main.add_supplier') }}" class="btn btn-primary">Adicionar Novo Fornecedor</a>
+        </div>
+
+        <!-- Search Form -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <form method="GET" action="{{ url_for('main.suppliers') }}">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Pesquisar por nome..." value="{{ search_query or '' }}">
+                        <button class="btn btn-outline-secondary" type="submit">Pesquisar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Pessoa de Contato</th>
+                        <th>Email</th>
+                        <th>Telefone</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers.items %}
+                        <tr>
+                            <td>{{ supplier.name }}</td>
+                            <td>{{ supplier.contact_person }}</td>
+                            <td>{{ supplier.email }}</td>
+                            <td>{{ supplier.phone }}</td>
+                            <td>
+                                <a href="{{ url_for('main.update_supplier', supplier_id=supplier.id) }}" class="btn btn-secondary btn-sm">Editar</a>
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal{{ supplier.id }}">
+                                    Apagar
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ supplier.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ supplier.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteModalLabel{{ supplier.id }}">Apagar Fornecedor</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Tem a certeza que deseja apagar o fornecedor <strong>{{ supplier.name }}</strong>?
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <form action="{{ url_for('main.delete_supplier', supplier_id=supplier.id) }}" method="POST">
+                                            <input type="submit" class="btn btn-danger" value="Apagar">
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center">Não existem fornecedores registados.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Controles de Paginação -->
+        <nav aria-label="Paginação de Fornecedores">
+            <ul class="pagination justify-content-center">
+                {% if suppliers.has_prev %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.suppliers', page=suppliers.prev_num, search=search_query) }}">Anterior</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                {% endif %}
+
+                {% for page_num in suppliers.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if page_num %}
+                        {% if suppliers.page == page_num %}
+                            <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('main.suppliers', page=page_num, search=search_query) }}">{{ page_num }}</a></li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if suppliers.has_next %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.suppliers', page=suppliers.next_num, search=search_query) }}">Próxima</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+{% endblock content %}

@@ -1,11 +1,68 @@
 {% extends "layout.html" %}
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Dashboard de Projetos</h1>
+        <h1>Dashboard</h1>
         {% if current_user.is_authenticated and current_user.is_admin %}
             <a href="{{ url_for('main.new_project') }}" class="btn btn-primary">Adicionar Novo Projeto</a>
         {% endif %}
     </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total de Projetos</h5>
+                    <p class="card-text fs-4">{{ total_projects }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total de Contratos</h5>
+                    <p class="card-text fs-4">{{ total_contracts }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Valor Total dos Contratos</h5>
+                    <p class="card-text fs-4">{{ "{:,.2f}".format(total_contract_value) }} MZN</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Projetos por Província</h5>
+                    <canvas id="projectsByProvinceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <h2 class="mt-5 mb-3">Lista de Projetos</h2>
+
+    <!-- Search Form -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <form method="GET" action="{{ url_for('main.home') }}">
+                <div class="input-group">
+                    <input type="text" name="search" class="form-control" placeholder="Pesquisar por nome do projeto..." value="{{ search_query or '' }}">
+                    <button class="btn btn-outline-secondary" type="submit">Pesquisar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="table-responsive">
         <table class="table table-bordered table-hover">
             <thead class="thead-dark">
@@ -50,7 +107,7 @@
     <nav aria-label="Paginação de Projetos">
         <ul class="pagination justify-content-center">
             {% if projects.has_prev %}
-                <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=projects.prev_num) }}">Anterior</a></li>
+                <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=projects.prev_num, search=search_query) }}">Anterior</a></li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">Anterior</span></li>
             {% endif %}
@@ -60,7 +117,7 @@
                     {% if projects.page == page_num %}
                         <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
                     {% else %}
-                        <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=page_num) }}">{{ page_num }}</a></li>
+                        <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=page_num, search=search_query) }}">{{ page_num }}</a></li>
                     {% endif %}
                 {% else %}
                     <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -68,7 +125,7 @@
             {% endfor %}
 
             {% if projects.has_next %}
-                <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=projects.next_num) }}">Próxima</a></li>
+                <li class="page-item"><a class="page-link" href="{{ url_for('main.home', page=projects.next_num, search=search_query) }}">Próxima</a></li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">Próxima</span></li>
             {% endif %}
@@ -96,24 +153,59 @@
         </div>
     </div>
 
-    {% block scripts %}
+{% endblock content %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            var deleteModal = document.getElementById('deleteModal');
-            deleteModal.addEventListener('show.bs.modal', function (event) {
-                var button = event.relatedTarget;
-                var projectId = button.getAttribute('data-project-id');
-                var projectName = button.getAttribute('data-project-name');
-                
-                var modalTitle = deleteModal.querySelector('.modal-title');
-                var modalBodyStrong = deleteModal.querySelector('.modal-body strong');
-                var deleteForm = deleteModal.querySelector('#deleteForm');
+            // Script para o modal de exclusão
+            const deleteModal = document.getElementById('deleteModal');
+            if (deleteModal) {
+                deleteModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const projectId = button.getAttribute('data-project-id');
+                    const projectName = button.getAttribute('data-project-name');
+                    const modalBodyStrong = deleteModal.querySelector('.modal-body strong');
+                    const deleteForm = deleteModal.querySelector('#deleteForm');
 
-                modalTitle.textContent = 'Confirmar Exclusão do Projeto: ' + projectName;
-                modalBodyStrong.textContent = projectName;
-                deleteForm.action = "/project/" + projectId + "/delete";
-            });
+                    if (modalBodyStrong) {
+                        modalBodyStrong.textContent = projectName;
+                    }
+                    if (deleteForm) {
+                        deleteForm.action = `/project/${projectId}/delete`;
+                    }
+                });
+            }
+
+            // Gráfico de Projetos por Província
+            const ctx = document.getElementById('projectsByProvinceChart');
+            if (ctx) {
+                new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: {{ province_labels | tojson | safe }},
+                        datasets: [{
+                            label: 'Número de Projetos',
+                            data: {{ province_data | tojson | safe }},
+                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
         });
     </script>
-    {% endblock %}
-{% endblock content %}
+{% endblock scripts %}

@@ -61,7 +61,82 @@
         </div>
     </div>
 
-    <div class="mt-3">
+    <!-- Secção de Contratos -->
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-file-signature me-2"></i>Contratos Associados</h4>
+            {% if current_user.is_authenticated and current_user.is_admin %}
+                <a href="{{ url_for('main.add_contract', project_id=project.id) }}" class="btn btn-primary btn-sm">Adicionar Contrato</a>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if project.contracts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tipo de Contrato</th>
+                                <th>Fornecedor/Empreiteiro</th>
+                                <th>Valor (MZN)</th>
+                                <th>Data de Início</th>
+                                <th>Data de Fim</th>
+                                <th>Documento</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for contract in project.contracts %}
+                            <tr>
+                                <td>{{ contract.contract_type_info.name }}</td>
+                                <td>{{ contract.supplier_info.name }}</td>
+                                <td>{{ "{:,.2f}".format(contract.contract_value) }}</td>
+                                <td>{{ contract.start_date.strftime('%d-%m-%Y') if contract.start_date }}</td>
+                                <td>{{ contract.end_date.strftime('%d-%m-%Y') if contract.end_date }}</td>
+                                <td>
+                                    {% if contract.document_filename %}
+                                        <a href="{{ url_for('main.download_document', filename=contract.document_filename) }}" target="_blank">Ver</a>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('main.update_contract', contract_id=contract.id) }}" class="btn btn-sm btn-secondary">Editar</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% for contract in project.contracts %}
+                <!-- Delete Contract Modal -->
+                <div class="modal fade" id="deleteContractModal{{ contract.id }}" tabindex="-1" aria-labelledby="deleteContractModalLabel{{ contract.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="deleteContractModalLabel{{ contract.id }}">Apagar Contrato</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                Tem a certeza que deseja apagar o contrato do tipo <strong>{{ contract.contract_type }}</strong> com o fornecedor <strong>{{ contract.supplier_info.name }}</strong>?
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <form action="{{ url_for('main.delete_contract', contract_id=contract.id) }}" method="POST">
+                                    <input type="submit" class="btn btn-danger" value="Apagar">
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="card-text">Não existem contratos associados a este projeto.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4">
         <a href="{{ url_for('main.home') }}" class="btn btn-outline-secondary">Voltar ao Dashboard</a>
     </div>
 </div>

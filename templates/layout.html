@@ -24,6 +24,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.new_project') }}">Novo Projeto</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.suppliers') }}">Fornecedores</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.contracts') }}">Contratos</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.contract_types') }}">Tipos de Contrato</a>
+                    </li>
                     {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.logout') }}">Sair</a>
@@ -58,6 +67,7 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

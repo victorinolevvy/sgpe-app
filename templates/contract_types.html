@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+{% block content %}
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Tipos de Contrato</h1>
+            <a href="{{ url_for('main.new_contract_type') }}" class="btn btn-primary">Adicionar Novo Tipo</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="thead-dark">
+                    <tr>
+                        <th scope="col">Nome</th>
+                        <th scope="col">Descrição</th>
+                        <th scope="col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ctype in contract_types.items %}
+                        <tr>
+                            <td>{{ ctype.name }}</td>
+                            <td>{{ ctype.description or '' }}</td>
+                            <td>
+                                <a href="{{ url_for('main.update_contract_type', type_id=ctype.id) }}" class="btn btn-sm btn-secondary">Editar</a>
+                                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal{{ ctype.id }}">
+                                    Apagar
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Modal -->
+                        <div class="modal fade" id="deleteModal{{ ctype.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ ctype.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="deleteModalLabel{{ ctype.id }}">Apagar Tipo de Contrato</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Tem a certeza que deseja apagar o tipo de contrato <strong>{{ ctype.name }}</strong>? <br>
+                                        <small class="text-danger">Atenção: Esta ação não pode ser desfeita e só é permitida se não existirem contratos associados a este tipo.</small>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <form action="{{ url_for('main.delete_contract_type', type_id=ctype.id) }}" method="POST">
+                                            <input type="submit" class="btn btn-danger" value="Apagar">
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center">Nenhum tipo de contrato encontrado.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Controles de Paginação -->
+        <nav aria-label="Paginação de Tipos de Contrato">
+            <ul class="pagination justify-content-center">
+                {% if contract_types.has_prev %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.contract_types', page=contract_types.prev_num) }}">Anterior</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                {% endif %}
+
+                {% for page_num in contract_types.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                    {% if page_num %}
+                        {% if contract_types.page == page_num %}
+                            <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('main.contract_types', page=page_num) }}">{{ page_num }}</a></li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if contract_types.has_next %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('main.contract_types', page=contract_types.next_num) }}">Próxima</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+{% endblock content %}

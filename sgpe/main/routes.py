@@ -1,18 +1,50 @@
-from flask import Blueprint, render_template, url_for, flash, redirect, request, jsonify, abort
+import os
+import secrets
+from flask import Blueprint, render_template, url_for, flash, redirect, request, jsonify, abort, current_app, send_from_directory
 from flask_login import login_user, current_user, logout_user, login_required
 from sgpe import db, bcrypt
-from sgpe.models import User, Project
-from sgpe.forms import RegistrationForm, LoginForm, ProjectForm
+from sgpe.models import User, Project, Contract, Supplier, ContractType
+from sqlalchemy import func
+from sgpe.forms import RegistrationForm, LoginForm, ProjectForm, ContractForm, SupplierForm, ContractTypeForm
 from sgpe.locations import LOCATIONS
+from werkzeug.utils import secure_filename
 
 main = Blueprint('main', __name__)
 
 @main.route('/')
 @main.route('/home')
 def home():
+    # Dados para o dashboard
+    total_projects = Project.query.count()
+    total_contracts = Contract.query.count()
+    total_contract_value = db.session.query(func.sum(Contract.contract_value)).scalar() or 0
+
+    # Dados para o gráfico de projetos por província
+    projects_by_province = db.session.query(Project.location_province, func.count(Project.id)).group_by(Project.location_province).all()
+    province_labels = [row[0] for row in projects_by_province]
+    province_data = [row[1] for row in projects_by_province]
+
+    # Lógica de pesquisa e paginação para a lista de projetos
     page = request.args.get('page', 1, type=int)
-    projects = Project.query.order_by(Project.date_posted.desc()).paginate(page=page, per_page=10)
-    return render_template('dashboard.html', projects=projects)
+    search_query = request.args.get('search', '')
+    query = Project.query
+
+    if search_query:
+        query = query.filter(Project.name.ilike(f'%{search_query}%'))
+
+    projects = query.order_by(Project.date_posted.desc()).paginate(page=page, per_page=5)
+
+    return render_template(
+        'dashboard.html',
+        title='Dashboard',
+        projects=projects,
+        search_query=search_query,
+        total_projects=total_projects,
+        total_contracts=total_contracts,
+        total_contract_value=total_contract_value,
+        province_labels=province_labels,
+        province_data=province_data
+    )
 
 
 @main.route('/register', methods=['GET', 'POST'])
@@ -189,6 +221,28 @@ def delete_project(project_id):
     return redirect(url_for('main.home'))
 
 
+def save_document(form_document):
+    """Salva o documento de contrato no sistema de ficheiros."""
+    random_hex = secrets.token_hex(8)
+    _, f_ext = os.path.splitext(form_document.filename)
+    document_fn = random_hex + f_ext
+    document_path = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'], document_fn)
+    
+    # Garante que o diretório de upload existe
+    os.makedirs(os.path.dirname(document_path), exist_ok=True)
+    
+    form_document.save(document_path)
+    
+    return document_fn
+
+@main.route('/uploads/<filename>')
+@login_required
+def download_document(filename):
+    """Serve os ficheiros de upload para download."""
+    upload_dir = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'])
+    return send_from_directory(upload_dir, filename)
+
+
 @main.route('/api/districts/<province>')
 def get_districts(province):
     if province not in LOCATIONS:
@@ -203,3 +257,237 @@ def get_admin_posts(province, district):
         return jsonify([])
     admin_posts = LOCATIONS[province][district]
     return jsonify(admin_posts)
+
+
+# Rotas para Fornecedores
+@main.route('/suppliers')
+@login_required
+def suppliers():
+    page = request.args.get('page', 1, type=int)
+    search_query = request.args.get('search', '')
+    query = Supplier.query
+
+    if search_query:
+        query = query.filter(Supplier.name.ilike(f'%{search_query}%'))
+
+    suppliers = query.order_by(Supplier.name).paginate(page=page, per_page=10)
+    return render_template('suppliers.html', title='Fornecedores', suppliers=suppliers, search_query=search_query)
+
+@main.route('/supplier/add', methods=['GET', 'POST'])
+@login_required
+def add_supplier():
+    if not current_user.is_admin:
+        flash('Não tem permissão para aceder a esta página.', 'danger')
+        return redirect(url_for('main.home'))
+    form = SupplierForm()
+    if form.validate_on_submit():
+        supplier = Supplier(name=form.name.data, contact_person=form.contact_person.data,
+                            email=form.email.data, phone=form.phone.data)
+        db.session.add(supplier)
+        db.session.commit()
+        flash('Fornecedor adicionado com sucesso!', 'success')
+        return redirect(url_for('main.suppliers'))
+    return render_template('add_supplier.html', title='Adicionar Fornecedor', form=form, legend='Novo Fornecedor')
+
+@main.route('/supplier/<int:supplier_id>/update', methods=['GET', 'POST'])
+@login_required
+def update_supplier(supplier_id):
+    supplier = Supplier.query.get_or_404(supplier_id)
+    if not current_user.is_admin:
+        flash('Não tem permissão para executar esta ação.', 'danger')
+        return redirect(url_for('main.suppliers'))
+    form = SupplierForm(obj=supplier)
+    if form.validate_on_submit():
+        form.populate_obj(supplier)
+        db.session.commit()
+        flash('Fornecedor atualizado com sucesso!', 'success')
+        return redirect(url_for('main.suppliers'))
+    return render_template('add_supplier.html', title='Atualizar Fornecedor',
+                           form=form, legend='Atualizar Fornecedor')
+
+@main.route('/supplier/<int:supplier_id>/delete', methods=['POST'])
+@login_required
+def delete_supplier(supplier_id):
+    supplier = Supplier.query.get_or_404(supplier_id)
+    if not current_user.is_admin:
+        flash('Não tem permissão para executar esta ação.', 'danger')
+        return redirect(url_for('main.suppliers'))
+    db.session.delete(supplier)
+    db.session.commit()
+    flash('Fornecedor apagado com sucesso!', 'success')
+    return redirect(url_for('main.suppliers'))
+
+
+# Rotas para Tipos de Contrato
+@main.route('/contract_types')
+@login_required
+def contract_types():
+    """Exibe uma lista de todos os tipos de contrato."""
+    page = request.args.get('page', 1, type=int)
+    contract_types = ContractType.query.order_by(ContractType.name).paginate(page=page, per_page=10)
+    return render_template('contract_types.html', title='Tipos de Contrato', contract_types=contract_types)
+
+@main.route('/contract_type/new', methods=['GET', 'POST'])
+@login_required
+def new_contract_type():
+    """Cria um novo tipo de contrato."""
+    if not current_user.is_admin:
+        flash('Não tem permissão para aceder a esta página.', 'danger')
+        return redirect(url_for('main.home'))
+    form = ContractTypeForm()
+    if form.validate_on_submit():
+        contract_type = ContractType(name=form.name.data, description=form.description.data)
+        db.session.add(contract_type)
+        db.session.commit()
+        flash('Tipo de contrato criado com sucesso!', 'success')
+        return redirect(url_for('main.contract_types'))
+    return render_template('add_contract_type.html', title='Novo Tipo de Contrato', form=form, legend='Novo Tipo de Contrato')
+
+@main.route('/contract_type/<int:type_id>/update', methods=['GET', 'POST'])
+@login_required
+def update_contract_type(type_id):
+    """Atualiza um tipo de contrato existente."""
+    contract_type = ContractType.query.get_or_404(type_id)
+    if not current_user.is_admin:
+        flash('Não tem permissão para executar esta ação.', 'danger')
+        return redirect(url_for('main.contract_types'))
+    form = ContractTypeForm(obj=contract_type)
+    if form.validate_on_submit():
+        contract_type.name = form.name.data
+        contract_type.description = form.description.data
+        db.session.commit()
+        flash('Tipo de contrato atualizado com sucesso!', 'success')
+        return redirect(url_for('main.contract_types'))
+    return render_template('add_contract_type.html', title='Atualizar Tipo de Contrato', form=form, legend='Atualizar Tipo de Contrato')
+
+@main.route('/contract_type/<int:type_id>/delete', methods=['POST'])
+@login_required
+def delete_contract_type(type_id):
+    """Apaga um tipo de contrato."""
+    contract_type = ContractType.query.get_or_404(type_id)
+    if not current_user.is_admin:
+        abort(403)
+    if contract_type.contracts:
+        flash('Não é possível apagar este tipo de contrato, pois existem contratos associados a ele.', 'danger')
+        return redirect(url_for('main.contract_types'))
+    db.session.delete(contract_type)
+    db.session.commit()
+    flash('Tipo de contrato apagado com sucesso!', 'success')
+    return redirect(url_for('main.contract_types'))
+
+
+# Rotas para Contratos
+@main.route('/contracts')
+@login_required
+def contracts():
+    """Exibe uma lista de todos os contratos."""
+    page = request.args.get('page', 1, type=int)
+    search_query = request.args.get('search', '')
+    query = Contract.query
+
+    if search_query:
+        # Pesquisa por número do contrato ou nome do fornecedor
+        query = query.join(Supplier).filter(
+            (Contract.contract_number.ilike(f'%{search_query}%')) |
+            (Supplier.name.ilike(f'%{search_query}%'))
+        )
+
+    contracts = query.order_by(Contract.start_date.desc()).paginate(page=page, per_page=10)
+    return render_template('contracts.html', title='Contratos', contracts=contracts, search_query=search_query)
+
+
+@main.route('/contract/add', methods=['GET', 'POST'])
+@login_required
+def add_contract():
+    if not current_user.is_admin:
+        flash('Não tem permissão para aceder a esta página.', 'danger')
+        return redirect(url_for('main.home'))
+    form = ContractForm()
+    if form.validate_on_submit():
+        document_filename = None
+        if form.document.data:
+            document_filename = save_document(form.document.data)
+
+        contract = Contract(
+            contract_number=form.contract_number.data,
+            contract_type_id=form.contract_type.data.id,
+            supplier_id=form.supplier.data.id,
+            contract_value=form.contract_value.data,
+            start_date=form.start_date.data,
+            end_date=form.end_date.data,
+            document_filename=document_filename
+        )
+        # Associa os projetos selecionados
+        for project in form.projects.data:
+            contract.projects.append(project)
+            
+        db.session.add(contract)
+        db.session.commit()
+        flash('Contrato adicionado com sucesso!', 'success')
+        return redirect(url_for('main.contracts'))
+    return render_template('add_contract.html', title='Adicionar Contrato', form=form, legend='Novo Contrato')
+
+
+@main.route('/contract/<int:contract_id>/update', methods=['GET', 'POST'])
+@login_required
+def update_contract(contract_id):
+    contract = Contract.query.get_or_404(contract_id)
+    if not current_user.is_admin:
+        flash('Não tem permissão para executar esta ação.', 'danger')
+        return redirect(url_for('main.contracts'))
+    form = ContractForm(obj=contract)
+    
+    if form.validate_on_submit():
+        if form.document.data:
+            # Apaga o documento antigo se um novo for enviado
+            if contract.document_filename:
+                old_document_path = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'], contract.document_filename)
+                if os.path.exists(old_document_path):
+                    os.remove(old_document_path)
+            contract.document_filename = save_document(form.document.data)
+
+        contract.contract_number = form.contract_number.data
+        contract.contract_type_id = form.contract_type.data.id
+        contract.supplier_id = form.supplier.data.id
+        contract.contract_value = form.contract_value.data
+        contract.start_date = form.start_date.data
+        contract.end_date = form.end_date.data
+        
+        # Atualiza os projetos associados
+        contract.projects = form.projects.data
+
+        db.session.commit()
+        flash('Contrato atualizado com sucesso!', 'success')
+        return redirect(url_for('main.contracts'))
+    
+    elif request.method == 'GET':
+        # Popula o formulário com os dados existentes
+        form.contract_number.data = contract.contract_number
+        form.contract_type.data = contract.contract_type
+        form.supplier.data = contract.supplier
+        form.contract_value.data = contract.contract_value
+        form.start_date.data = contract.start_date
+        form.end_date.data = contract.end_date
+        form.projects.data = contract.projects
+
+    return render_template('add_contract.html', title='Atualizar Contrato', form=form, legend='Atualizar Contrato')
+
+
+@main.route('/contract/<int:contract_id>/delete', methods=['POST'])
+@login_required
+def delete_contract(contract_id):
+    contract = Contract.query.get_or_404(contract_id)
+    if not current_user.is_admin:
+        flash('Não tem permissão para executar esta ação.', 'danger')
+        return redirect(url_for('main.contracts'))
+    
+    # Apaga o documento associado, se existir
+    if contract.document_filename:
+        document_path = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'], contract.document_filename)
+        if os.path.exists(document_path):
+            os.remove(document_path)
+
+    db.session.delete(contract)
+    db.session.commit()
+    flash('Contrato apagado com sucesso!', 'success')
+    return redirect(url_for('main.contracts'))
