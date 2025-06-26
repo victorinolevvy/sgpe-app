@@ -3,9 +3,9 @@ import secrets
 from flask import Blueprint, render_template, url_for, flash, redirect, request, jsonify, abort, current_app, send_from_directory
 from flask_login import login_user, current_user, logout_user, login_required
 from sgpe import db, bcrypt
-from sgpe.models import User, Project, Contract, Supplier, ContractType
+from sgpe.models import User, Project, Contract, Supplier, ContractType, ProjectType
 from sqlalchemy import func
-from sgpe.forms import RegistrationForm, LoginForm, ProjectForm, ContractForm, SupplierForm, ContractTypeForm
+from sgpe.forms import RegistrationForm, LoginForm, ProjectForm, ContractForm, SupplierForm, ContractTypeForm, ProjectTypeForm
 from sgpe.locations import LOCATIONS
 from werkzeug.utils import secure_filename
 
@@ -117,20 +117,12 @@ def new_project():
         form.location_admin_post.choices = [('', 'Selecione o Posto Administrativo')]
 
     if form.validate_on_submit():
-        # Converte a lista de tipos de rede para uma string
-        network_type_str = ", ".join(form.network_type.data)
-
         project = Project(
             name=form.name.data,
+            project_type_id=form.project_type_id.data.id,
             location_province=form.location_province.data,
             location_district=form.location_district.data,
             location_admin_post=form.location_admin_post.data,
-            generation_capacity_kW=form.generation_capacity_kW.data,
-            storage_capacity_kWh=form.storage_capacity_kWh.data,
-            network_type=network_type_str,
-            mv_voltage_level=form.mv_voltage_level.data if 'Média Tensão' in form.network_type.data else None,
-            lv_network_type=form.lv_network_type.data if 'Baixa Tensão' in form.network_type.data else None,
-            num_connections=form.num_connections.data,
             author=current_user
         )
         db.session.add(project)
@@ -156,53 +148,59 @@ def update_project(project_id):
         return redirect(url_for('main.home'))
     
     form = ProjectForm()
-    form.submit.label.text = 'Atualizar Projeto' # Altera o rótulo do botão
+    form.submit.label.text = 'Atualizar Projeto'
 
     # Popula as províncias em todas as requisições
     form.location_province.choices = [('', 'Selecione a Província')] + [(p, p) for p in LOCATIONS.keys()]
 
-    # Lógica para popular dinamicamente os dropdowns, tanto em GET (para exibir dados existentes)
-    # quanto em POST (para repopular em caso de erro de validação)
+    # Lógica para repopular os dropdowns em caso de erro de validação no POST
     if request.method == 'POST':
         province = request.form.get('location_province')
         district = request.form.get('location_district')
-    else: # GET
-        province = project.location_province
-        district = project.location_district
+        
+        districts_choices = [('', 'Selecione o Distrito')]
+        if province in LOCATIONS:
+            districts_choices.extend([(d, d) for d in LOCATIONS[province].keys()])
+        form.location_district.choices = districts_choices
 
-    form.location_district.choices = [('', 'Selecione o Distrito')]
-    if province and province in LOCATIONS:
-        form.location_district.choices.extend([(d, d) for d in LOCATIONS[province].keys()])
-
-    form.location_admin_post.choices = [('', 'Selecione o Posto Administrativo')]
-    if province and district and district in LOCATIONS.get(province, {}):
-        form.location_admin_post.choices.extend([(p, p) for p in LOCATIONS[province][district]])
+        admin_posts_choices = [('', 'Selecione o Posto Administrativo')]
+        if province and district and district in LOCATIONS.get(province, {}):
+            admin_posts_choices.extend([(p, p) for p in LOCATIONS[province][district]])
+        form.location_admin_post.choices = admin_posts_choices
 
     if form.validate_on_submit():
         project.name = form.name.data
+        project.project_type_id = form.project_type_id.data.id
         project.location_province = form.location_province.data
         project.location_district = form.location_district.data
         project.location_admin_post = form.location_admin_post.data
-        project.generation_capacity_kW = form.generation_capacity_kW.data
-        project.storage_capacity_kWh = form.storage_capacity_kWh.data
-        project.network_type = ", ".join(form.network_type.data)
-        project.mv_voltage_level = form.mv_voltage_level.data if 'Média Tensão' in form.network_type.data else None
-        project.lv_network_type = form.lv_network_type.data if 'Baixa Tensão' in form.network_type.data else None
-        project.num_connections = form.num_connections.data
         db.session.commit()
         flash('O projeto foi atualizado com sucesso!', 'success')
         return redirect(url_for('main.project', project_id=project.id))
+    
     elif request.method == 'GET':
+        # Popula o formulário com os dados existentes do projeto
+        
+        # Popula as escolhas dos dropdowns dinâmicos
+        province = project.location_province
+        district = project.location_district
+
+        districts_choices = [('', 'Selecione o Distrito')]
+        if province in LOCATIONS:
+            districts_choices.extend([(d, d) for d in LOCATIONS[province].keys()])
+        form.location_district.choices = districts_choices
+
+        admin_posts_choices = [('', 'Selecione o Posto Administrativo')]
+        if province and district and district in LOCATIONS.get(province, {}):
+            admin_posts_choices.extend([(p, p) for p in LOCATIONS[province][district]])
+        form.location_admin_post.choices = admin_posts_choices
+
+        # Define os valores selecionados para todos os campos
         form.name.data = project.name
-        form.location_province.data = project.location_province
-        form.location_district.data = project.location_district
+        form.project_type_id.data = project.project_type
+        form.location_province.data = province
+        form.location_district.data = district
         form.location_admin_post.data = project.location_admin_post
-        form.generation_capacity_kW.data = project.generation_capacity_kW
-        form.storage_capacity_kWh.data = project.storage_capacity_kWh
-        form.network_type.data = [item.strip() for item in project.network_type.split(',')]
-        form.mv_voltage_level.data = project.mv_voltage_level
-        form.lv_network_type.data = project.lv_network_type
-        form.num_connections.data = project.num_connections
 
     return render_template('create_project.html', title='Atualizar Projeto',
                            form=form, legend='Atualizar Projeto', project_id=project_id)
@@ -212,51 +210,68 @@ def update_project(project_id):
 @login_required
 def delete_project(project_id):
     project = Project.query.get_or_404(project_id)
-    if not current_user.is_admin:
-        flash('Não tem permissão para executar esta ação.', 'danger')
-        return redirect(url_for('main.home'))
+    if project.author != current_user:
+        abort(403)
     db.session.delete(project)
     db.session.commit()
-    flash('O projeto foi apagado com sucesso!', 'success')
+    flash('O seu projeto foi apagado!', 'success')
     return redirect(url_for('main.home'))
 
-
-def save_document(form_document):
-    """Salva o documento de contrato no sistema de ficheiros."""
-    random_hex = secrets.token_hex(8)
-    _, f_ext = os.path.splitext(form_document.filename)
-    document_fn = random_hex + f_ext
-    document_path = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'], document_fn)
-    
-    # Garante que o diretório de upload existe
-    os.makedirs(os.path.dirname(document_path), exist_ok=True)
-    
-    form_document.save(document_path)
-    
-    return document_fn
-
-@main.route('/uploads/<filename>')
+# Rotas para Tipos de Projeto
+@main.route("/project_types")
 @login_required
-def download_document(filename):
-    """Serve os ficheiros de upload para download."""
-    upload_dir = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'])
-    return send_from_directory(upload_dir, filename)
+def project_types():
+    if not current_user.is_admin:
+        abort(403)
+    page = request.args.get('page', 1, type=int)
+    project_types = ProjectType.query.order_by(ProjectType.name.asc()).paginate(page=page, per_page=10)
+    return render_template('project_types.html', project_types=project_types, title='Tipos de Projeto')
 
+@main.route("/project_types/new", methods=['GET', 'POST'])
+@login_required
+def add_project_type():
+    if not current_user.is_admin:
+        abort(403)
+    form = ProjectTypeForm()
+    if form.validate_on_submit():
+        project_type = ProjectType(name=form.name.data, description=form.description.data)
+        db.session.add(project_type)
+        db.session.commit()
+        flash('Tipo de Projeto adicionado com sucesso!', 'success')
+        return redirect(url_for('main.project_types'))
+    return render_template('add_project_type.html', title='Adicionar Tipo de Projeto', form=form, legend='Novo Tipo de Projeto')
 
-@main.route('/api/districts/<province>')
-def get_districts(province):
-    if province not in LOCATIONS:
-        return jsonify([])
-    districts = list(LOCATIONS[province].keys())
-    return jsonify(districts)
+@main.route("/project_types/<int:project_type_id>/edit", methods=['GET', 'POST'])
+@login_required
+def edit_project_type(project_type_id):
+    project_type = ProjectType.query.get_or_404(project_type_id)
+    if not current_user.is_admin:
+        abort(403)
+    form = ProjectTypeForm()
+    if form.validate_on_submit():
+        project_type.name = form.name.data
+        project_type.description = form.description.data
+        db.session.commit()
+        flash('Tipo de Projeto atualizado com sucesso!', 'success')
+        return redirect(url_for('main.project_types'))
+    elif request.method == 'GET':
+        form.name.data = project_type.name
+        form.description.data = project_type.description
+    return render_template('add_project_type.html', title='Editar Tipo de Projeto', form=form, legend='Editar Tipo de Projeto')
 
-
-@main.route('/api/admin_posts/<province>/<district>')
-def get_admin_posts(province, district):
-    if province not in LOCATIONS or district not in LOCATIONS[province]:
-        return jsonify([])
-    admin_posts = LOCATIONS[province][district]
-    return jsonify(admin_posts)
+@main.route("/project_types/<int:project_type_id>/delete", methods=['POST'])
+@login_required
+def delete_project_type(project_type_id):
+    project_type = ProjectType.query.get_or_404(project_type_id)
+    if not current_user.is_admin:
+        abort(403)
+    if project_type.projects:
+        flash('Não é possível apagar este tipo de projeto, pois existem projetos associados a ele.', 'danger')
+        return redirect(url_for('main.project_types'))
+    db.session.delete(project_type)
+    db.session.commit()
+    flash('Tipo de Projeto apagado com sucesso!', 'success')
+    return redirect(url_for('main.project_types'))
 
 
 # Rotas para Fornecedores
@@ -463,8 +478,8 @@ def update_contract(contract_id):
     elif request.method == 'GET':
         # Popula o formulário com os dados existentes
         form.contract_number.data = contract.contract_number
-        form.contract_type.data = contract.contract_type
-        form.supplier.data = contract.supplier
+        form.contract_type.data = contract.contract_type_info
+        form.supplier.data = contract.supplier_info
         form.contract_value.data = contract.contract_value
         form.start_date.data = contract.start_date
         form.end_date.data = contract.end_date
@@ -491,3 +506,41 @@ def delete_contract(contract_id):
     db.session.commit()
     flash('Contrato apagado com sucesso!', 'success')
     return redirect(url_for('main.contracts'))
+
+
+def save_document(form_document):
+    """Salva o documento de contrato no sistema de ficheiros."""
+    random_hex = secrets.token_hex(8)
+    _, f_ext = os.path.splitext(form_document.filename)
+    document_fn = random_hex + f_ext
+    document_path = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'], document_fn)
+    
+    # Garante que o diretório de upload existe
+    os.makedirs(os.path.dirname(document_path), exist_ok=True)
+    
+    form_document.save(document_path)
+    
+    return document_fn
+
+@main.route('/uploads/<filename>')
+@login_required
+def download_document(filename):
+    """Serve os ficheiros de upload para download."""
+    upload_dir = os.path.join(current_app.root_path, '..', current_app.config['UPLOAD_FOLDER'])
+    return send_from_directory(upload_dir, filename)
+
+
+@main.route('/api/districts/<province>')
+def get_districts(province):
+    if province not in LOCATIONS:
+        return jsonify([])
+    districts = list(LOCATIONS[province].keys())
+    return jsonify(districts)
+
+
+@main.route('/api/admin_posts/<province>/<district>')
+def get_admin_posts(province, district):
+    if province not in LOCATIONS or district not in LOCATIONS[province]:
+        return jsonify([])
+    admin_posts = LOCATIONS[province][district]
+    return jsonify(admin_posts)

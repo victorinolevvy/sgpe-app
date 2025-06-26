@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <title>{{ title }}</title>
+    <style>
+        body {
+            padding-top: 56px; /* Adjust this value based on your navbar's height */
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.home') }}">SGPE</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
@@ -32,6 +37,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.contract_types') }}">Tipos de Contrato</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.project_types') }}">Tipos de Projeto</a>
                     </li>
                     {% endif %}
                     <li class="nav-item">

@@ -28,34 +28,14 @@
             </div>
         </div>
 
-        <!-- Coluna de Detalhes da Central -->
+        <!-- Coluna de Detalhes do Projeto -->
         <div class="col-md-4">
             <div class="card mb-4">
                 <div class="card-header">
-                    <i class="fas fa-solar-panel me-2"></i><strong>Detalhes da Central</strong>
+                    <i class="fas fa-info-circle me-2"></i><strong>Detalhes do Projeto</strong>
                 </div>
                 <ul class="list-group list-group-flush">
-                    <li class="list-group-item"><strong>Capacidade de Geração:</strong> {{ project.generation_capacity_kW }} kW</li>
-                    <li class="list-group-item"><strong>Capacidade de Armazenamento:</strong> {{ project.storage_capacity_kWh }} kWh</li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Coluna de Detalhes da Rede -->
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-network-wired me-2"></i><strong>Detalhes da Rede</strong>
-                </div>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item"><strong>Tipo de Rede:</strong> {{ project.network_type }}</li>
-                    {% if 'Média Tensão' in project.network_type %}
-                        <li class="list-group-item"><strong>Nível de Tensão (MT):</strong> {{ project.mv_voltage_level if project.mv_voltage_level is not none else 'N/A' }} kV</li>
-                    {% endif %}
-                    {% if 'Baixa Tensão' in project.network_type %}
-                        <li class="list-group-item"><strong>Tipo de Rede (BT):</strong> {{ project.lv_network_type if project.lv_network_type is not none else 'N/A' }}</li>
-                    {% endif %}
-                    <li class="list-group-item"><strong>Número de Ligações:</strong> {{ project.num_connections }}</li>
+                    <li class="list-group-item"><strong>Tipo de Projeto:</strong> {{ project.project_type.name if project.project_type else 'N/A' }}</li>
                 </ul>
             </div>
         </div>

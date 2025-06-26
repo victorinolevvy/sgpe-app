@@ -20,6 +20,11 @@
                         {{ form.name(class="form-control form-control-lg") }}
                     {% endif %}
                 </div>
+
+                <div class="form-group mb-3">
+                    {{ form.project_type_id.label(class="form-control-label") }}
+                    {{ form.project_type_id(class="form-control", id="project_type") }}
+                </div>
                 
                 <!-- Campos de Localização -->
                 <div class="row mb-3">
@@ -43,45 +48,6 @@
                     </div>
                 </div>
 
-                <!-- Outros campos -->
-                <div class="form-group mb-3">
-                    {{ form.generation_capacity_kW.label(class="form-control-label") }}
-                    {{ form.generation_capacity_kW(class="form-control") }}
-                </div>
-                <div class="form-group mb-3">
-                    {{ form.storage_capacity_kWh.label(class="form-control-label") }}
-                    {{ form.storage_capacity_kWh(class="form-control") }}
-                </div>
-                <div class="form-group mb-3">
-                    {{ form.num_connections.label(class="form-control-label") }}
-                    {{ form.num_connections(class="form-control") }}
-                </div>
-
-                <!-- Campos Condicionais -->
-                <div class="form-group mb-3">
-                    {{ form.network_type.label(class="form-control-label d-block mb-2") }}
-                    {% for subfield in form.network_type %}
-                        <div class="form-check form-check-inline">
-                            {{ subfield(class="form-check-input") }}
-                            {{ subfield.label(class="form-check-label") }}
-                        </div>
-                    {% endfor %}
-                </div>
-                
-                <div id="mv_voltage_level_field" class="form-group mb-3" style="display: none;">
-                    {{ form.mv_voltage_level.label(class="form-control-label") }}
-                    {{ form.mv_voltage_level(class="form-control") }}
-                </div>
-                
-                <div id="lv_network_type_field" class="form-group mb-3" style="display: none;">
-                    {{ form.lv_network_type.label(class="form-control-label d-block mb-2") }}
-                     {% for subfield in form.lv_network_type %}
-                        <div class="form-check">
-                            {{ subfield(class="form-check-input") }}
-                            {{ subfield.label(class="form-check-label") }}
-                        </div>
-                    {% endfor %}
-                </div>
             </fieldset>
             <div class="form-group mt-4">
                 {{ form.submit(class="btn btn-primary") }}
@@ -95,72 +61,76 @@
 
 {% block scripts %}
 <script>
-    // Script para popular dinamicamente os dropdowns de localização
-    document.getElementById('province').addEventListener('change', function() {
-        var province = this.value;
-        var districtSelect = document.getElementById('district');
-        var adminPostSelect = document.getElementById('admin_post');
-
-        // Limpa os selects de distrito e posto administrativo
-        districtSelect.innerHTML = '<option value="">Selecione o Distrito</option>';
-        adminPostSelect.innerHTML = '<option value="">Selecione o Posto Administrativo</option>';
-
-        if (province) {
-            fetch('/api/districts/' + province)
-                .then(response => response.json())
-                .then(data => {
-                    data.forEach(function(district) {
-                        var option = new Option(district, district);
-                        districtSelect.add(option);
-                    });
-                });
-        }
-    });
-
-    document.getElementById('district').addEventListener('change', function() {
-        var province = document.getElementById('province').value;
-        var district = this.value;
-        var adminPostSelect = document.getElementById('admin_post');
-
-        adminPostSelect.innerHTML = '<option value="">Selecione o Posto Administrativo</option>';
-
-        if (district) {
-            fetch('/api/admin_posts/' + province + '/' + district)
-                .then(response => response.json())
-                .then(data => {
-                    data.forEach(function(post) {
-                        var option = new Option(post, post);
-                        adminPostSelect.add(option);
-                    });
-                });
-        }
-    });
-
-    // Script para mostrar/ocultar campos condicionais
     document.addEventListener('DOMContentLoaded', function() {
-        const networkTypeCheckboxes = document.querySelectorAll('input[name="network_type"]');
-        const mvField = document.getElementById('mv_voltage_level_field');
-        const lvField = document.getElementById('lv_network_type_field');
+        const provinceSelect = document.getElementById('province');
+        const districtSelect = document.getElementById('district');
+        const adminPostSelect = document.getElementById('admin_post');
 
-        function toggleFields() {
-            let showMv = false;
-            let showLv = false;
-            networkTypeCheckboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    if (checkbox.value === 'Média Tensão') showMv = true;
-                    if (checkbox.value === 'Baixa Tensão') showLv = true;
-                }
-            });
-            mvField.style.display = showMv ? 'block' : 'none';
-            lvField.style.display = showLv ? 'block' : 'none';
+        // Guarda os valores iniciais (para o modo de edição)
+        const initialDistrict = "{{ form.location_district.data or '' }}";
+        const initialAdminPost = "{{ form.location_admin_post.data or '' }}";
+
+        function updateDistricts(province, selectedDistrict) {
+            districtSelect.innerHTML = '<option value="">Selecione o Distrito</option>';
+            adminPostSelect.innerHTML = '<option value="">Selecione o Posto Administrativo</option>';
+
+            if (province) {
+                fetch('/api/districts/' + province)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(function(district) {
+                            const option = new Option(district, district);
+                            districtSelect.add(option);
+                        });
+                        if (selectedDistrict) {
+                            districtSelect.value = selectedDistrict;
+                            // Dispara o evento change para carregar os postos administrativos
+                            districtSelect.dispatchEvent(new Event('change'));
+                        }
+                    });
+            }
         }
 
-        networkTypeCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', toggleFields);
+        function updateAdminPosts(province, district, selectedAdminPost) {
+            adminPostSelect.innerHTML = '<option value="">Selecione o Posto Administrativo</option>';
+
+            if (province && district) {
+                fetch('/api/admin_posts/' + province + '/' + district)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.forEach(function(post) {
+                            const option = new Option(post, post);
+                            adminPostSelect.add(option);
+                        });
+                        if (selectedAdminPost) {
+                            adminPostSelect.value = selectedAdminPost;
+                        }
+                    });
+            }
+        }
+
+        provinceSelect.addEventListener('change', function() {
+            updateDistricts(this.value, null);
         });
 
-        // Garante o estado correto no carregamento da página (para edição e erros de validação)
-        toggleFields();
+        districtSelect.addEventListener('change', function() {
+            const province = provinceSelect.value;
+            updateAdminPosts(province, this.value, null);
+        });
+
+        // Carregamento inicial para o modo de edição
+        if (provinceSelect.value) {
+            updateDistricts(provinceSelect.value, initialDistrict);
+        }
+        
+        // Um pequeno atraso para garantir que os distritos são carregados antes de tentar carregar os postos
+        // Isto é necessário porque o fetch é assíncrono
+        setTimeout(() => {
+             if (districtSelect.value) {
+                updateAdminPosts(provinceSelect.value, districtSelect.value, initialAdminPost);
+             }
+        }, 500); // 500ms de atraso
+
     });
 </script>
-{% endblock %}
+{% endblock scripts %}

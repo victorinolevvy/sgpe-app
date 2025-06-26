@@ -28,6 +28,15 @@ class User(db.Model, UserMixin):
     def __repr__(self):
         return f"User('{self.username}', '{self.email}')"
 
+class ProjectType(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    projects = db.relationship('Project', backref='project_type', lazy=True)
+
+    def __repr__(self):
+        return f"ProjectType('{self.name}')"
+
 # Tabela de associação para a relação muitos-para-muitos entre Contrato and Projeto
 contract_projects = db.Table('contract_projects',
     db.Column('contract_id', db.Integer, db.ForeignKey('contract.id'), primary_key=True),
@@ -38,15 +47,10 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    project_type_id = db.Column(db.Integer, db.ForeignKey('project_type.id'), nullable=False)
     location_province = db.Column(db.String(50), nullable=False)
     location_district = db.Column(db.String(50), nullable=False)
     location_admin_post = db.Column(db.String(50), nullable=False)
-    generation_capacity_kW = db.Column(db.Float, nullable=False)
-    storage_capacity_kWh = db.Column(db.Float, nullable=False)
-    network_type = db.Column(db.String(100), nullable=True)
-    mv_voltage_level = db.Column(db.String(20), nullable=True)
-    lv_network_type = db.Column(db.String(20), nullable=True)
-    num_connections = db.Column(db.Integer, nullable=False)
     date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     # Relação com Contratos
@@ -73,7 +77,7 @@ class Supplier(db.Model):
 class ContractType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    description = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True) 
     contracts = db.relationship('Contract', backref='contract_type_info', lazy=True)
 
     def __repr__(self):

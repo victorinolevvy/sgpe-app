@@ -41,7 +41,7 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Projetos por Província</h5>
-                    <canvas id="projectsByProvinceChart"></canvas>
+                    <canvas id="projectsByProvinceChart" data-labels='{{ province_labels | tojson | safe }}' data-data='{{ province_data | tojson | safe }}'></canvas>
                 </div>
             </div>
         </div>
@@ -70,10 +70,7 @@
                     <th>Nome</th>
                     <th>Província</th>
                     <th>Distrito</th>
-                    <th>Capacidade de Geração (kW)</th>
-                    <th>Capacidade de Armazenamento (kWh)</th>
-                    <th>Tipo de Rede</th>
-                    <th>Ligações</th>
+                    <th>Tipo de Projeto</th>
                     <th>Ações</th>
                 </tr>
             </thead>
@@ -83,10 +80,7 @@
                         <td><a href="{{ url_for('main.project', project_id=project.id) }}">{{ project.name }}</a></td>
                         <td>{{ project.location_province }}</td>
                         <td>{{ project.location_district }}</td>
-                        <td>{{ project.generation_capacity_kW }}</td>
-                        <td>{{ project.storage_capacity_kWh }}</td>
-                        <td>{{ project.network_type }}</td>
-                        <td>{{ project.num_connections }}</td>
+                        <td>{{ project.project_type.name if project.project_type else 'N/A' }}</td>
                         <td>
                             <a href="{{ url_for('main.update_project', project_id=project.id) }}" class="btn btn-secondary btn-sm">Editar</a>
                             <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
@@ -96,7 +90,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="8" class="text-center">Não existem projetos registados.</td>
+                        <td colspan="5" class="text-center">Não existem projetos registados.</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -182,13 +176,16 @@
             // Gráfico de Projetos por Província
             const ctx = document.getElementById('projectsByProvinceChart');
             if (ctx) {
+                const labels = JSON.parse(ctx.dataset.labels);
+                const data = JSON.parse(ctx.dataset.data);
+
                 new Chart(ctx.getContext('2d'), {
                     type: 'bar',
                     data: {
-                        labels: {{ province_labels | tojson | safe }},
+                        labels: labels,
                         datasets: [{
                             label: 'Número de Projetos',
-                            data: {{ province_data | tojson | safe }},
+                            data: data,
                             backgroundColor: 'rgba(54, 162, 235, 0.6)',
                             borderColor: 'rgba(54, 162, 235, 1)',
                             borderWidth: 1
